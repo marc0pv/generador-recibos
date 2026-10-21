@@ -1,0 +1,1147 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generador de recibos</title>
+<style>
+:root{
+  --bg:#f3f0e9; --panel:#fffdf8; --card:#faf8f3; --line:#e3ded2; --text:#2a2723; --muted:#7a7468;
+  --accent:#2f5bd8; --accent-ink:#fff; --danger:#c0392b; --focus:rgba(47,91,216,.25); --stage:#ebe7dd;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1b1a18; --panel:#24221f; --card:#2a2824; --line:#3a3731; --text:#ece8df; --muted:#a39d90;
+    --accent:#7593f2; --accent-ink:#0f1220; --danger:#e8746a; --focus:rgba(117,147,242,.3); --stage:#161513;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:7px 12px}
+button:hover{border-color:var(--muted)}
+button:disabled{opacity:.35;cursor:default}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+button.icon{padding:3px 7px;font-size:12px;line-height:1.2;background:transparent}
+button.danger:hover{color:var(--danger);border-color:var(--danger)}
+input[type=text],input[type=number],input[type=date],input[type=time],select,textarea{
+  width:100%;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:6px 8px;min-width:0}
+textarea{resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--focus)}
+input[type=color]{width:44px;height:30px;padding:2px;border:1px solid var(--line);border-radius:7px;background:var(--panel)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+
+header.top{display:flex;align-items:center;gap:8px;padding:10px 20px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10;flex-wrap:wrap}
+.brand{font-weight:700;font-size:16px;margin-right:auto;display:flex;align-items:center;gap:8px}
+.brand .mark{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:7px;background:var(--accent);color:var(--accent-ink);font-size:14px}
+
+main{display:grid;grid-template-columns:minmax(340px,470px) 1fr;gap:20px;padding:20px;max-width:1400px;margin:0 auto}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px}
+.editor{padding:14px;align-self:start}
+.tpl-bar{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.tpl-bar label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.tabs{display:grid;grid-template-columns:1fr 1fr;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:3px;margin-bottom:12px}
+.tab{border:0;background:transparent;border-radius:7px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.tab.active{background:var(--panel);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+.sec{border:1px solid var(--line);border-radius:10px;background:var(--card);margin-bottom:8px;transition:box-shadow .1s}
+.sec.dragging{opacity:.45}
+.sec.drop-before{box-shadow:0 -3px 0 var(--accent)}
+.sec.drop-after{box-shadow:0 3px 0 var(--accent)}
+.sec-head{display:flex;align-items:center;gap:8px;padding:7px 8px 7px 6px;cursor:pointer;user-select:none}
+.handle{cursor:grab;color:var(--muted);padding:2px 4px;font-size:15px;line-height:1}
+.chev{color:var(--muted);font-size:10px;width:10px;transition:transform .15s}
+.sec.open .chev{transform:rotate(90deg)}
+.sec-ico{width:18px;text-align:center;color:var(--muted)}
+.sec-title{font-weight:600;white-space:nowrap}
+.sec-sum{color:var(--muted);font-size:12px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right}
+.sec-actions{display:flex;gap:2px}
+.sec-actions button{border-color:transparent}
+.sec-actions button:hover{border-color:var(--line)}
+.sec-body{display:none;padding:12px;border-top:1px solid var(--line);gap:10px}
+.sec.open .sec-body{display:grid}
+.empty-list{text-align:center;color:var(--muted);padding:28px 10px}
+
+.field{display:grid;gap:4px}
+.field .lbl{font-size:12px;color:var(--muted)}
+.field.check{display:flex;align-items:center;gap:8px;cursor:pointer}
+.field.check input{width:16px;height:16px;accent-color:var(--accent)}
+.field.check .lbl{font-size:13px;color:var(--text)}
+.range-row{display:flex;align-items:center;gap:10px}
+.range-row output{font-size:12px;color:var(--muted);min-width:44px;text-align:right;font-variant-numeric:tabular-nums}
+.img-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.img-row img{height:36px;max-width:120px;object-fit:contain;border:1px solid var(--line);border-radius:6px;background:#fff}
+.group-title{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:6px 0 -2px}
+.paper-grid{display:grid;gap:12px}
+
+.rows{display:grid;gap:6px}
+.row{display:grid;gap:6px;align-items:center}
+.row-items{grid-template-columns:62px 1fr 86px 28px}
+.row-kv{grid-template-columns:1fr 1fr 28px}
+.row.head span{font-size:11px;color:var(--muted)}
+.add-row{justify-self:start;font-size:13px;padding:5px 10px}
+
+.add-wrap{position:relative;margin-top:4px}
+.add{width:100%;border-style:dashed;padding:10px;color:var(--muted)}
+.add:hover{color:var(--text)}
+.menu{position:absolute;left:0;right:0;top:calc(100% + 6px);background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);padding:6px;display:grid;grid-template-columns:1fr 1fr;gap:4px;z-index:5}
+.menu button{border:0;text-align:left;display:flex;gap:8px;align-items:center;background:transparent}
+.menu button:hover{background:var(--card)}
+
+.preview{display:flex;flex-direction:column;gap:12px;position:sticky;top:72px;align-self:start;max-height:calc(100vh - 92px)}
+.preview-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.name{flex:1;min-width:160px;font-size:20px!important;font-weight:700;border-color:transparent!important;background:transparent!important;padding:4px 6px!important}
+.name:hover{border-color:var(--line)!important}
+.zoom{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+.zoom button{border:0;background:transparent;padding:6px 10px}
+.zoom span{font-size:12px;color:var(--muted);min-width:42px;text-align:center;font-variant-numeric:tabular-nums}
+.preview,.editor{min-width:0}
+.stage{flex:1;overflow:auto;background:var(--stage);border:1px solid var(--line);border-radius:12px;padding:32px 16px;display:flex;align-items:flex-start;min-height:420px}
+#cv{display:block;margin:0 auto;flex-shrink:0;filter:drop-shadow(0 8px 18px rgba(0,0,0,.18)) drop-shadow(0 1px 2px rgba(0,0,0,.12))}
+.empty{color:var(--muted);margin:80px 0}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;background:var(--text);color:var(--bg);border-radius:10px;padding:10px 14px;display:flex;gap:12px;align-items:center;transition:.2s;z-index:20;max-width:calc(100vw - 32px)}
+.toast.show{opacity:1;transform:translate(-50%,0);pointer-events:auto}
+.toast button{background:transparent;color:inherit;border-color:currentColor;padding:3px 10px}
+
+#printArea{display:none}
+@media (max-width:900px){
+  main{grid-template-columns:minmax(0,1fr);padding:16px}
+  .preview{position:static;max-height:none}
+  .stage{min-height:300px}
+}
+@media (max-width:480px){
+  header.top{padding:10px 16px}
+  .sec-sum{display:none}
+  .sec-head{gap:6px}
+  .row-items{grid-template-columns:52px 1fr 72px 28px}
+}
+@media print{
+  @page{margin:0}
+  body{background:#fff}
+  body>*:not(#printArea){display:none!important}
+  #printArea{display:block}
+  #printArea img{display:block}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="mark">▤</span>Generador de recibos</div>
+  <input type="file" id="fileOpen" accept="application/json,.json" hidden>
+  <button id="btnOpen" title="Abrir un recibo guardado (.json)">Abrir…</button>
+  <button id="btnSave" title="Guardar el recibo como archivo .json">Guardar</button>
+  <button id="btnPng" class="primary">Descargar PNG</button>
+</header>
+
+<main>
+  <section class="panel editor">
+    <div class="tpl-bar">
+      <label for="tpl">Plantilla</label>
+      <select id="tpl"></select>
+      <button id="btnTpl">Aplicar</button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab active" role="tab" data-tab="content">Contenido</button>
+      <button class="tab" role="tab" data-tab="paper">Papel y formato</button>
+    </div>
+    <div id="tab-content">
+      <div id="sections"></div>
+      <div class="add-wrap">
+        <button id="btnAdd" class="add">+ Añadir sección</button>
+        <div id="addMenu" class="menu" hidden></div>
+      </div>
+    </div>
+    <div id="tab-paper" class="paper-grid" hidden></div>
+  </section>
+
+  <section class="preview">
+    <div class="preview-bar">
+      <input id="name" class="name" type="text" aria-label="Nombre del recibo">
+      <div class="zoom">
+        <button id="zOut" aria-label="Alejar">−</button><span id="zVal">100%</span><button id="zIn" aria-label="Acercar">+</button>
+      </div>
+      <button id="btnPrint">Imprimir / PDF</button>
+    </div>
+    <div class="stage">
+      <canvas id="cv"></canvas>
+      <p id="empty" class="empty" hidden>Añade secciones para construir tu recibo</p>
+    </div>
+  </section>
+</main>
+
+<div id="printArea"><img id="printImg" alt=""></div>
+<div id="toast" class="toast" role="status"></div>
+
+<script>
+'use strict';
+
+/* ---------- utilidades ---------- */
+const $ = s => document.querySelector(s);
+const uid = () => Math.random().toString(36).slice(2, 10);
+const clone = o => JSON.parse(JSON.stringify(o));
+const pad2 = n => String(n).padStart(2, '0');
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+const nowTime = () => { const d = new Date(); return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+
+function h(tag, attrs, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === 'class') el.className = v;
+    else if (k.startsWith('on')) el[k] = v;
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of kids.flat()) {
+    if (c == null || c === false) continue;
+    el.append(c instanceof Node ? c : document.createTextNode(String(c)));
+  }
+  return el;
+}
+
+function iconBtn(label, title, onclick, disabled, extra) {
+  return h('button', { type: 'button', class: 'icon' + (extra ? ' ' + extra : ''), title, 'aria-label': title, disabled: !!disabled,
+    onclick: e => { e.stopPropagation(); onclick(); } }, label);
+}
+
+/* ---------- formato ---------- */
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+function money(n) {
+  const p = state.paper;
+  const neg = n < 0;
+  let [i, f] = Math.abs(n).toFixed(p.decimals).split('.');
+  i = i.replace(/\B(?=(\d{3})+(?!\d))/g, p.thousandsSep);
+  let s = f !== undefined ? i + p.decimalSep + f : i;
+  if (p.currency) s = p.currencyPos === 'before' ? p.currency + s : s + ' ' + p.currency;
+  return (neg ? '-' : '') + s;
+}
+
+function fmtQty(q) {
+  const s = String(Math.round(q * 1000) / 1000);
+  return state.paper.decimalSep === ',' ? s.replace('.', ',') : s;
+}
+
+function fmtDate(iso, f) {
+  if (!iso) return '';
+  const [y, m, d] = iso.split('-');
+  switch (f) {
+    case 'mm/dd/yyyy': return `${m}/${d}/${y}`;
+    case 'yyyy-mm-dd': return iso;
+    case 'dd/mm/yy': return `${d}/${m}/${y.slice(2)}`;
+    case 'd mmm yyyy': return `${+d} ${MESES[+m - 1]} ${y}`;
+    default: return `${d}/${m}/${y}`;
+  }
+}
+
+function fmtTime(t, clock) {
+  if (!t) return '';
+  if (clock !== '12') return t;
+  const [H, M, S] = t.split(':');
+  const hh = +H;
+  return `${hh % 12 || 12}:${M}${S ? ':' + S : ''} ${hh >= 12 ? 'PM' : 'AM'}`;
+}
+
+/* ---------- Code 128 (juego B) ---------- */
+const C128 = ['212222','222122','222221','121223','121322','131222','122213','122312','132212','221213',
+  '221312','231212','112232','122132','122231','113222','123122','123221','223211','221132',
+  '221231','213212','223112','312131','311222','321122','321221','312212','322112','322211',
+  '212123','212321','232121','111323','131123','131321','112313','132113','132311','211313',
+  '231113','231311','112133','112331','132131','113123','113321','133121','313121','211331',
+  '231131','213113','213311','213131','311123','311321','331121','312113','312311','332111',
+  '314111','221411','431111','111224','111422','121124','121421','141122','141221','112214',
+  '112412','122114','122411','142112','142211','241211','221114','413111','241112','134111',
+  '111242','121142','121241','114212','124112','124211','411212','421112','421211','212141',
+  '214121','412121','111143','111341','131141','114113','114311','411113','411311','113141',
+  '114131','311141','411131','211412','211214','211232','2331112'];
+
+function code128(text) {
+  const vals = [104];
+  for (const ch of text) {
+    const c = ch.charCodeAt(0);
+    if (c >= 32 && c <= 126) vals.push(c - 32);
+  }
+  if (vals.length === 1) return [];
+  let sum = 104;
+  for (let i = 1; i < vals.length; i++) sum += vals[i] * i;
+  vals.push(sum % 103, 106);
+  const widths = [];
+  for (const v of vals) for (const d of C128[v]) widths.push(+d);
+  return widths;
+}
+
+/* ---------- tipos de sección ---------- */
+const ALIGN = [['left', 'Izquierda'], ['center', 'Centro'], ['right', 'Derecha']];
+
+const TYPES = {
+  header: {
+    label: 'Encabezado', icon: '▤',
+    defaults: () => ({ name: 'MI NEGOCIO', lines: 'Calle Ejemplo 123, Ciudad\nTel. 000 000 000', align: 'center', size: 1.5, bold: true, logo: '', logoWidth: 45 }),
+    fields: [
+      { k: 'name', label: 'Nombre del negocio', type: 'text' },
+      { k: 'lines', label: 'Líneas adicionales (dirección, teléfono, NIF…)', type: 'textarea', rows: 3 },
+      { k: 'align', label: 'Alineación', type: 'select', options: ALIGN },
+      { k: 'size', label: 'Tamaño del nombre', type: 'range', min: 1, max: 2.5, step: 0.1, unit: '×' },
+      { k: 'bold', label: 'Nombre en negrita', type: 'checkbox' },
+      { k: 'logo', label: 'Logo (opcional)', type: 'image' },
+      { k: 'logoWidth', label: 'Ancho del logo', type: 'range', min: 10, max: 100, step: 5, unit: '%', show: d => !!d.logo },
+    ],
+    summary: d => d.name,
+  },
+  datetime: {
+    label: 'Fecha y hora', icon: '◷',
+    defaults: () => ({ date: today(), time: nowTime(), showTime: true, format: 'dd/mm/yyyy', clock: '24', layout: 'split', dateLabel: 'Fecha', timeLabel: 'Hora' }),
+    fields: [
+      { k: 'date', label: 'Fecha', type: 'date' },
+      { k: 'time', label: 'Hora', type: 'time' },
+      { k: 'showTime', label: 'Mostrar la hora', type: 'checkbox' },
+      { k: 'format', label: 'Formato de fecha', type: 'select', options: [['dd/mm/yyyy', 'dd/mm/aaaa'], ['dd/mm/yy', 'dd/mm/aa'], ['mm/dd/yyyy', 'mm/dd/aaaa'], ['yyyy-mm-dd', 'aaaa-mm-dd'], ['d mmm yyyy', '5 oct 2026']] },
+      { k: 'clock', label: 'Formato de hora', type: 'select', options: [['24', '24 horas'], ['12', '12 horas (AM/PM)']] },
+      { k: 'layout', label: 'Disposición', type: 'select', options: [['split', 'Fecha a la izquierda, hora a la derecha'], ['stacked', 'Una debajo de otra'], ['center', 'Centradas, sin etiquetas']] },
+      { k: 'dateLabel', label: 'Etiqueta de fecha', type: 'text', show: d => d.layout !== 'center' },
+      { k: 'timeLabel', label: 'Etiqueta de hora', type: 'text', show: d => d.layout !== 'center' },
+    ],
+    summary: d => `${fmtDate(d.date, d.format)} ${d.showTime ? fmtTime(d.time, d.clock) : ''}`,
+  },
+  info: {
+    label: 'Datos', icon: '≡', editor: 'kv',
+    defaults: () => ({ rows: [{ k: 'Ticket', v: '000123' }, { k: 'Atendió', v: 'Ana' }], layout: 'split' }),
+    fields: [
+      { k: 'layout', label: 'Disposición', type: 'select', options: [['split', 'Etiqueta a la izquierda, valor a la derecha'], ['colon', 'Etiqueta: valor']] },
+    ],
+    summary: d => d.rows.map(r => r.k).filter(Boolean).join(', '),
+  },
+  items: {
+    label: 'Artículos', icon: '☰', editor: 'items',
+    defaults: () => ({ items: [{ qty: 1, name: 'Producto', price: 1 }], style: 'qtyFirst', header: true }),
+    fields: [
+      { k: 'style', label: 'Estilo de línea', type: 'select', options: [['qtyFirst', 'Cantidad + descripción'], ['unitLine', 'Descripción + línea de precio unitario'], ['nameOnly', 'Solo descripción']] },
+      { k: 'header', label: 'Mostrar encabezado de columnas', type: 'checkbox' },
+    ],
+    summary: d => `${d.items.length} ${d.items.length === 1 ? 'artículo' : 'artículos'}`,
+  },
+  divider: {
+    label: 'Separador', icon: '┄',
+    defaults: () => ({ style: 'dashed' }),
+    fields: [
+      { k: 'style', label: 'Estilo', type: 'select', options: [['dashed', 'Línea discontinua'], ['solid', 'Línea continua'], ['double', 'Línea doble'], ['dotted', 'Puntos'], ['equals', '= = = ='], ['stars', '* * * *'], ['blank', 'Espacio en blanco']] },
+    ],
+    summary: d => ({ dashed: 'discontinua', solid: 'continua', double: 'doble', dotted: 'puntos', equals: '=====', stars: '*****', blank: 'espacio' })[d.style],
+  },
+  totals: {
+    label: 'Totales', icon: 'Σ',
+    defaults: () => ({ showItemCount: false, countLabel: 'Artículos', showSubtotal: true, discountMode: 'amount', discount: 0, discountLabel: 'Descuento',
+      taxRate: 0, taxLabel: 'IVA', taxIncluded: false, tipMode: 'none', tip: 0, tipLabel: 'Propina', totalLabel: 'TOTAL', totalSize: 1.3,
+      payment: 'Efectivo', tendered: 0, changeLabel: 'Cambio' }),
+    fields: [
+      { k: 'showSubtotal', label: 'Mostrar subtotal', type: 'checkbox' },
+      { k: 'showItemCount', label: 'Mostrar número de artículos', type: 'checkbox' },
+      { k: 'discountMode', label: 'Descuento', type: 'select', options: [['amount', 'Importe fijo'], ['percent', 'Porcentaje']] },
+      { k: 'discount', label: 'Valor del descuento (0 = sin descuento)', type: 'number', min: 0 },
+      { k: 'discountLabel', label: 'Etiqueta del descuento', type: 'text', show: d => +d.discount > 0 },
+      { k: 'taxRate', label: 'Impuesto (%)', type: 'number', min: 0 },
+      { k: 'taxLabel', label: 'Nombre del impuesto', type: 'text', show: d => +d.taxRate > 0 },
+      { k: 'taxIncluded', label: 'Los precios ya incluyen el impuesto', type: 'checkbox', show: d => +d.taxRate > 0 },
+      { k: 'tipMode', label: 'Propina', type: 'select', options: [['none', 'Sin propina'], ['percent', 'Porcentaje'], ['amount', 'Importe fijo']] },
+      { k: 'tip', label: 'Valor de la propina', type: 'number', min: 0, show: d => d.tipMode !== 'none' },
+      { k: 'tipLabel', label: 'Etiqueta de la propina', type: 'text', show: d => d.tipMode !== 'none' },
+      { k: 'totalLabel', label: 'Etiqueta del total', type: 'text' },
+      { k: 'totalSize', label: 'Tamaño del total', type: 'range', min: 1, max: 2, step: 0.1, unit: '×' },
+      { k: 'payment', label: 'Forma de pago (vacío = no mostrar)', type: 'text' },
+      { k: 'tendered', label: 'Importe entregado (0 = no mostrar cambio)', type: 'number', min: 0 },
+    ],
+    summary: d => `Total ${money(computeTotals(d).total)}`,
+  },
+  text: {
+    label: 'Texto', icon: '¶',
+    defaults: () => ({ text: '¡Gracias por su compra!', align: 'center', bold: false, size: 1 }),
+    fields: [
+      { k: 'text', label: 'Texto', type: 'textarea', rows: 3 },
+      { k: 'align', label: 'Alineación', type: 'select', options: ALIGN },
+      { k: 'size', label: 'Tamaño', type: 'range', min: 0.8, max: 2.5, step: 0.1, unit: '×' },
+      { k: 'bold', label: 'Negrita', type: 'checkbox' },
+    ],
+    summary: d => d.text.split('\n')[0],
+  },
+  barcode: {
+    label: 'Código de barras', icon: '▥',
+    defaults: () => ({ value: '000123456789', height: 48, widthPct: 80, showText: true }),
+    fields: [
+      { k: 'value', label: 'Valor (Code 128)', type: 'text' },
+      { k: 'height', label: 'Altura', type: 'range', min: 20, max: 120, step: 2, unit: 'px' },
+      { k: 'widthPct', label: 'Ancho', type: 'range', min: 30, max: 100, step: 5, unit: '%' },
+      { k: 'showText', label: 'Mostrar el valor debajo', type: 'checkbox' },
+    ],
+    summary: d => d.value,
+  },
+};
+
+const S = (type, data) => ({ id: uid(), type, open: false, data: { ...TYPES[type].defaults(), ...(data || {}) } });
+
+/* ---------- plantillas (datos ficticios) ---------- */
+const TEMPLATES = {
+  tienda: { label: 'Tienda / minimarket', build: () => [
+    S('header', { name: 'MINIMARKET LA ESQUINA', lines: 'Av. Principal 456, Local 2\nTel. 555 010 2030\nNIF: B-00000000' }),
+    S('divider'),
+    S('datetime'),
+    S('info', { rows: [{ k: 'Ticket', v: '0001-004521' }, { k: 'Caja', v: '02' }, { k: 'Atendió', v: 'Laura' }] }),
+    S('divider'),
+    S('items', { items: [
+      { qty: 2, name: 'Pan de molde', price: 1.85 }, { qty: 1, name: 'Leche entera 1 L', price: 0.99 },
+      { qty: 12, name: 'Huevos', price: 0.25 }, { qty: 1, name: 'Café molido 250 g', price: 3.49 },
+      { qty: 3, name: 'Agua mineral 1,5 L', price: 0.65 }] }),
+    S('divider'),
+    S('totals', { showItemCount: true, taxRate: 10, taxIncluded: true, tendered: 20 }),
+    S('divider'),
+    S('barcode', { value: '0001004521' }),
+    S('text', { text: '¡Gracias por su compra!\nConserve este ticket para cambios.' }),
+  ] },
+  restaurante: { label: 'Restaurante', build: () => [
+    S('header', { name: 'RESTAURANTE EL FOGÓN', lines: 'Plaza Mayor 8\nReservas: 555 222 333' }),
+    S('divider', { style: 'equals' }),
+    S('info', { rows: [{ k: 'Mesa', v: '7' }, { k: 'Comensales', v: '2' }, { k: 'Mesero', v: 'Carlos' }, { k: 'Cuenta', v: 'A-1187' }] }),
+    S('datetime', { layout: 'stacked' }),
+    S('divider', { style: 'equals' }),
+    S('items', { items: [
+      { qty: 1, name: 'Ensalada de la casa', price: 8.5 }, { qty: 2, name: 'Lomo a la plancha', price: 15.9 },
+      { qty: 1, name: 'Botella de agua', price: 2.2 }, { qty: 2, name: 'Postre del día', price: 4.75 }, { qty: 2, name: 'Café', price: 1.6 }] }),
+    S('divider'),
+    S('totals', { taxRate: 10, tipMode: 'percent', tip: 10, payment: 'Tarjeta' }),
+    S('divider', { style: 'blank' }),
+    S('text', { text: 'Gracias por su visita.\n¡Le esperamos pronto!', bold: true }),
+  ] },
+  cafeteria: { label: 'Cafetería', build: () => [
+    S('header', { name: 'CAFÉ AROMA', lines: 'Calle del Sol 21' , size: 1.8 }),
+    S('datetime', { layout: 'center' }),
+    S('divider', { style: 'dotted' }),
+    S('items', { header: false, items: [
+      { qty: 2, name: 'Café con leche', price: 1.8 }, { qty: 1, name: 'Croissant', price: 1.5 }, { qty: 1, name: 'Zumo de naranja', price: 2.5 }] }),
+    S('divider', { style: 'dotted' }),
+    S('totals', { showSubtotal: false, taxRate: 10, taxIncluded: true, payment: 'Tarjeta' }),
+    S('text', { text: 'Wi-Fi: CafeAroma · Clave: aroma2026', size: 0.9 }),
+  ] },
+  gasolinera: { label: 'Estación de servicio', build: () => [
+    S('header', { name: 'ESTACIÓN DE SERVICIO RUTA 9', size: 1.2, lines: 'Carretera Nacional km 42\nAbierto 24 h' }),
+    S('divider'),
+    S('datetime'),
+    S('info', { rows: [{ k: 'Surtidor', v: '4' }, { k: 'Operación', v: '558213' }] }),
+    S('divider'),
+    S('items', { style: 'unitLine', items: [{ qty: 32.5, name: 'Gasolina 95 (litros)', price: 1.589 }, { qty: 1, name: 'Lavado básico', price: 6 }] }),
+    S('divider'),
+    S('totals', { taxRate: 21, taxIncluded: true, payment: 'Tarjeta' }),
+    S('barcode', { value: 'R9-558213' }),
+    S('text', { text: 'Gracias y buen viaje' }),
+  ] },
+  servicios: { label: 'Recibo de pago (servicios)', build: () => [
+    S('header', { name: 'TU NOMBRE O EMPRESA', lines: 'Servicios profesionales\ncorreo@ejemplo.com · 555 000 111\nNIF: 00000000X', align: 'left', size: 1.3 }),
+    S('divider', { style: 'solid' }),
+    S('text', { text: 'RECIBO DE PAGO', bold: true, size: 1.3 }),
+    S('info', { rows: [{ k: 'Recibo nº', v: 'R-2026-001' }, { k: 'Cliente', v: 'Nombre del cliente' }] }),
+    S('datetime', { showTime: false, layout: 'stacked' }),
+    S('divider', { style: 'solid' }),
+    S('items', { style: 'nameOnly', header: false, items: [{ qty: 1, name: 'Consultoría (4 h)', price: 240 }, { qty: 1, name: 'Desplazamiento', price: 25 }] }),
+    S('divider', { style: 'solid' }),
+    S('totals', { taxRate: 21, payment: 'Transferencia' }),
+    S('divider', { style: 'blank' }),
+    S('text', { text: 'Recibí conforme\n\n\n______________________', align: 'left' }),
+  ] },
+  blank: { label: 'En blanco', build: () => [] },
+};
+
+/* ---------- estado ---------- */
+const DEFAULT_PAPER = () => ({ width: 80, font: 'courier', fontSize: 12, lineHeight: 1.35, padding: 16, edges: 'straight',
+  paperColor: '#fffefa', inkColor: '#1f1f1f', currency: '$', currencyPos: 'before', decimals: 2, decimalSep: '.', thousandsSep: ',' });
+
+const PAPER_FIELDS = [
+  { heading: 'Papel' },
+  { k: 'width', label: 'Ancho del papel', type: 'select', num: true, options: [[58, '58 mm'], [80, '80 mm'], [112, '112 mm']] },
+  { k: 'edges', label: 'Bordes', type: 'select', options: [['straight', 'Rectos'], ['zigzag', 'Dentados']] },
+  { k: 'padding', label: 'Margen interior', type: 'range', min: 4, max: 40, step: 1, unit: 'px' },
+  { k: 'paperColor', label: 'Color del papel', type: 'color' },
+  { k: 'inkColor', label: 'Color de la tinta', type: 'color' },
+  { heading: 'Texto' },
+  { k: 'font', label: 'Tipografía', type: 'select', options: [['courier', 'Courier New'], ['consolas', 'Consolas'], ['mono', 'Monoespaciada del sistema'], ['sans', 'Arial'], ['narrow', 'Arial Narrow']] },
+  { k: 'fontSize', label: 'Tamaño de letra', type: 'range', min: 9, max: 18, step: 0.5, unit: 'px' },
+  { k: 'lineHeight', label: 'Interlineado', type: 'range', min: 1, max: 2, step: 0.05, unit: '' },
+  { heading: 'Moneda' },
+  { k: 'currency', label: 'Símbolo de moneda', type: 'text' },
+  { k: 'currencyPos', label: 'Posición del símbolo', type: 'select', options: [['before', 'Antes ($10.00)'], ['after', 'Después (10,00 €)']] },
+  { k: 'decimals', label: 'Decimales', type: 'select', num: true, options: [[0, '0'], [2, '2'], [3, '3']] },
+  { k: 'decimalSep', label: 'Separador decimal', type: 'select', options: [['.', 'Punto (1.50)'], [',', 'Coma (1,50)']] },
+  { k: 'thousandsSep', label: 'Separador de miles', type: 'select', options: [[',', 'Coma (1,000)'], ['.', 'Punto (1.000)'], [' ', 'Espacio (1 000)'], ['', 'Ninguno (1000)']] },
+];
+
+const FONTS = {
+  courier: '"Courier New", Courier, monospace',
+  consolas: 'Consolas, "Lucida Console", monospace',
+  mono: 'ui-monospace, "Cascadia Mono", Menlo, monospace',
+  sans: 'Arial, Helvetica, sans-serif',
+  narrow: '"Arial Narrow", "Roboto Condensed", Arial, sans-serif',
+};
+
+const KEY = 'generador-recibos:v1';
+let state;
+let zoom = 1.25;
+
+function normalize(s) {
+  if (!s || !Array.isArray(s.sections)) throw new Error('El archivo no es un recibo válido.');
+  return {
+    name: String(s.name || 'Recibo'),
+    paper: { ...DEFAULT_PAPER(), ...(s.paper || {}) },
+    sections: s.sections.filter(x => x && TYPES[x.type]).map(x => ({
+      id: uid(), type: x.type, open: !!x.open, data: { ...TYPES[x.type].defaults(), ...(x.data || {}) },
+    })),
+  };
+}
+
+function fromTemplate(key) {
+  return { name: TEMPLATES[key].label, paper: state ? state.paper : DEFAULT_PAPER(), sections: TEMPLATES[key].build() };
+}
+
+let saveTimer = 0;
+function persist() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* almacenamiento no disponible */ } }, 250);
+}
+
+/* ---------- cálculos ---------- */
+function computeTotals(t) {
+  const f = 10 ** state.paper.decimals;
+  const R = x => Math.round(x * f) / f;
+  const items = state.sections.filter(s => s.type === 'items').flatMap(s => s.data.items || []);
+  const subtotal = R(items.reduce((a, i) => a + R((+i.qty || 0) * (+i.price || 0)), 0));
+  const count = items.reduce((a, i) => a + (+i.qty || 0), 0);
+  const dv = +t.discount || 0;
+  const discount = R(Math.min(subtotal, t.discountMode === 'percent' ? subtotal * dv / 100 : dv));
+  const base = subtotal - discount;
+  const rate = +t.taxRate || 0;
+  const tax = R(t.taxIncluded ? base - base / (1 + rate / 100) : base * rate / 100);
+  const tv = +t.tip || 0;
+  const tip = R(t.tipMode === 'percent' ? base * tv / 100 : t.tipMode === 'amount' ? tv : 0);
+  const total = R((t.taxIncluded ? base : base + tax) + tip);
+  const tendered = +t.tendered || 0;
+  return { subtotal, count, discount, rate, tax, tip, total, tendered, change: tendered > 0 ? R(tendered - total) : null };
+}
+
+/* ---------- renderizado en canvas ---------- */
+const MM_TO_PX = 3.7795;
+const imgCache = new Map();
+function getImg(src) {
+  let im = imgCache.get(src);
+  if (!im) { im = new Image(); im.onload = scheduleRender; im.src = src; imgCache.set(src, im); }
+  return im.complete && im.naturalWidth ? im : null;
+}
+
+function wrap(ctx, text, maxW) {
+  const lines = [];
+  for (const para of String(text ?? '').split('\n')) {
+    let cur = '';
+    for (let w of para.split(' ')) {
+      const test = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(test).width <= maxW) { cur = test; continue; }
+      if (cur) lines.push(cur);
+      while (w.length > 1 && ctx.measureText(w).width > maxW) {
+        let i = w.length - 1;
+        while (i > 1 && ctx.measureText(w.slice(0, i)).width > maxW) i--;
+        lines.push(w.slice(0, i));
+        w = w.slice(i);
+      }
+      cur = w;
+    }
+    lines.push(cur);
+  }
+  return lines;
+}
+
+function buildOps(ctx, W) {
+  const p = state.paper, base = p.fontSize, fam = FONTS[p.font] || FONTS.courier;
+  const ops = [];
+  const fontOf = (scale = 1, bold = false) => `${bold ? 'bold ' : ''}${(base * scale).toFixed(2)}px ${fam}`;
+  const lineH = (scale = 1) => base * scale * p.lineHeight;
+  const gap = hh => ops.push({ t: 'gap', h: hh });
+  const text = (str, { align = 'left', scale = 1, bold = false } = {}) => {
+    const font = fontOf(scale, bold);
+    ctx.font = font;
+    for (const ln of wrap(ctx, str, W)) ops.push({ t: 'line', h: lineH(scale), font, segs: [{ text: ln, align }] });
+  };
+  const pair = (left, right, { scale = 1, bold = false } = {}) => {
+    right = String(right ?? '');
+    if (!right) return text(left, { scale, bold });
+    const font = fontOf(scale, bold);
+    ctx.font = font;
+    const rw = ctx.measureText(right).width, sp = ctx.measureText('  ').width;
+    const lines = wrap(ctx, left, Math.max(W - rw - sp, W * 0.3));
+    lines.forEach((ln, i) => ops.push({ t: 'line', h: lineH(scale), font,
+      segs: i === 0 ? [{ text: ln, align: 'left' }, { text: right, align: 'right' }] : [{ text: ln, align: 'left' }] }));
+  };
+
+  for (const s of state.sections) {
+    const d = s.data;
+    switch (s.type) {
+      case 'header': {
+        const img = d.logo ? getImg(d.logo) : null;
+        if (img) {
+          const w = W * d.logoWidth / 100, ih = img.naturalHeight * w / img.naturalWidth;
+          ops.push({ t: 'img', h: ih + base * 0.6, ih, w, img, align: d.align });
+        }
+        if (d.name) text(d.name, { align: d.align, scale: +d.size, bold: d.bold });
+        if (d.lines) text(d.lines, { align: d.align });
+        gap(base * 0.4);
+        break;
+      }
+      case 'datetime': {
+        const ds = fmtDate(d.date, d.format), ts = d.showTime ? fmtTime(d.time, d.clock) : '';
+        const L = (lbl, v) => (lbl ? `${lbl}: ${v}` : v);
+        if (d.layout === 'center') text([ds, ts].filter(Boolean).join('  '), { align: 'center' });
+        else if (d.layout === 'stacked') { text(L(d.dateLabel, ds)); if (ts) text(L(d.timeLabel, ts)); }
+        else pair(L(d.dateLabel, ds), ts ? L(d.timeLabel, ts) : '');
+        break;
+      }
+      case 'info':
+        for (const r of d.rows) {
+          if (!r.k && !r.v) continue;
+          if (d.layout === 'colon') text(r.k ? `${r.k}: ${r.v}` : r.v);
+          else pair(r.k, r.v);
+        }
+        break;
+      case 'items':
+        if (d.header) pair(d.style === 'qtyFirst' ? 'CANT DESCRIPCIÓN' : 'DESCRIPCIÓN', 'IMPORTE', { bold: true });
+        for (const it of d.items) {
+          const q = +it.qty || 0, pr = +it.price || 0, amt = money(q * pr);
+          if (d.style === 'qtyFirst') pair(`${fmtQty(q)} ${it.name}`, amt);
+          else if (d.style === 'unitLine') { pair(it.name, amt); text(`  ${fmtQty(q)} x ${money(pr)}`, { scale: 0.9 }); }
+          else pair(it.name, amt);
+        }
+        break;
+      case 'divider': {
+        const st = d.style;
+        if (st === 'blank') { gap(lineH() * 0.8); break; }
+        const ch = { equals: '=', stars: '*' }[st];
+        if (ch) {
+          const font = fontOf();
+          ctx.font = font;
+          const n = Math.max(1, Math.floor(W / ctx.measureText(ch).width));
+          ops.push({ t: 'line', h: lineH(), font, segs: [{ text: ch.repeat(n), align: 'center' }] });
+        } else ops.push({ t: 'rule', h: lineH(), style: st });
+        break;
+      }
+      case 'totals': {
+        const c = computeTotals(d);
+        if (d.showItemCount) pair(d.countLabel, fmtQty(c.count));
+        if (d.showSubtotal) pair('Subtotal', money(c.subtotal));
+        if (c.discount > 0) pair(d.discountLabel + (d.discountMode === 'percent' ? ` ${fmtQty(+d.discount)}%` : ''), money(-c.discount));
+        if (c.rate > 0) pair(`${d.taxLabel} ${fmtQty(c.rate)}%${d.taxIncluded ? ' (incluido)' : ''}`, money(c.tax));
+        if (c.tip > 0) pair(d.tipLabel + (d.tipMode === 'percent' ? ` ${fmtQty(+d.tip)}%` : ''), money(c.tip));
+        gap(base * 0.3);
+        pair(d.totalLabel, money(c.total), { bold: true, scale: +d.totalSize });
+        gap(base * 0.3);
+        // el cambio solo tiene sentido si lo entregado cubre el total
+        const paidCash = c.change !== null && c.change >= 0;
+        if (d.payment) pair(d.payment, money(paidCash ? c.tendered : c.total));
+        if (paidCash) pair(d.changeLabel, money(c.change));
+        break;
+      }
+      case 'text':
+        text(d.text, { align: d.align, scale: +d.size, bold: d.bold });
+        break;
+      case 'barcode': {
+        const mods = code128(String(d.value || ''));
+        if (!mods.length) break;
+        const top = base * 0.4, tf = fontOf(0.85), th = d.showText ? lineH(0.85) : 0;
+        ops.push({ t: 'bars', h: top + +d.height + th + base * 0.4, top, bh: +d.height, mods,
+          total: mods.reduce((a, b) => a + b, 0), w: W * d.widthPct / 100, text: d.showText ? d.value : '', font: tf });
+        break;
+      }
+    }
+  }
+  return ops;
+}
+
+function drawOp(ctx, o, x0, y, W, scale) {
+  switch (o.t) {
+    case 'line': {
+      ctx.font = o.font;
+      ctx.textBaseline = 'middle';
+      for (const s of o.segs) {
+        ctx.textAlign = s.align;
+        const x = s.align === 'left' ? x0 : s.align === 'right' ? x0 + W : x0 + W / 2;
+        ctx.fillText(s.text, x, y + o.h / 2);
+      }
+      break;
+    }
+    case 'rule': {
+      const cy = y + o.h / 2;
+      ctx.lineWidth = 1;
+      ctx.lineCap = o.style === 'dotted' ? 'round' : 'butt';
+      ctx.setLineDash(o.style === 'dashed' ? [5, 3] : o.style === 'dotted' ? [0.1, 3] : []);
+      if (o.style === 'dotted') ctx.lineWidth = 1.6;
+      const ln = yy => { ctx.beginPath(); ctx.moveTo(x0, yy); ctx.lineTo(x0 + W, yy); ctx.stroke(); };
+      if (o.style === 'double') { ln(cy - 1.5); ln(cy + 1.5); } else ln(cy);
+      ctx.setLineDash([]);
+      break;
+    }
+    case 'img': {
+      const x = o.align === 'left' ? x0 : o.align === 'right' ? x0 + W - o.w : x0 + (W - o.w) / 2;
+      ctx.drawImage(o.img, x, y, o.w, o.ih);
+      break;
+    }
+    case 'bars': {
+      // ajusta el módulo a píxeles enteros del lienzo para que las barras salgan nítidas
+      const mw = Math.max(1, Math.floor(o.w / o.total * scale)) / scale;
+      let x = x0 + (W - mw * o.total) / 2, bar = true;
+      for (const m of o.mods) { if (bar) ctx.fillRect(x, y + o.top, m * mw, o.bh); x += m * mw; bar = !bar; }
+      if (o.text) {
+        ctx.font = o.font; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.fillText(o.text, x0 + W / 2, y + o.top + o.bh + 3);
+      }
+      break;
+    }
+  }
+}
+
+function render(canvas, scale) {
+  const p = state.paper;
+  const Wp = Math.round(p.width * MM_TO_PX), pad = +p.padding, W = Wp - pad * 2;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const ops = buildOps(ctx, W);
+  const edge = p.edges === 'zigzag' ? 7 : 0;
+  const H = Math.ceil(ops.reduce((a, o) => a + o.h, 0) + pad * 2 + edge * 2);
+  canvas.width = Math.round(Wp * scale);
+  canvas.height = Math.round(H * scale);
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.clearRect(0, 0, Wp, H);
+
+  ctx.fillStyle = p.paperColor;
+  if (edge) {
+    const tooth = 8;
+    ctx.beginPath();
+    ctx.moveTo(0, edge);
+    for (let x = 0; x < Wp; x += tooth) { ctx.lineTo(x + tooth / 2, 0); ctx.lineTo(x + tooth, edge); }
+    ctx.lineTo(Wp, H - edge);
+    for (let x = Wp; x > 0; x -= tooth) { ctx.lineTo(x - tooth / 2, H); ctx.lineTo(x - tooth, H - edge); }
+    ctx.closePath();
+    ctx.fill();
+  } else ctx.fillRect(0, 0, Wp, H);
+
+  ctx.fillStyle = p.inkColor;
+  ctx.strokeStyle = p.inkColor;
+  let y = pad + edge;
+  for (const o of ops) { drawOp(ctx, o, pad, y, W, scale); y += o.h; }
+  return { w: Wp, h: H };
+}
+
+let raf = 0;
+function scheduleRender() {
+  if (raf) return;
+  raf = requestAnimationFrame(() => { raf = 0; renderPreview(); });
+}
+
+function renderPreview() {
+  const cv = $('#cv'), empty = $('#empty');
+  const has = state.sections.length > 0;
+  cv.hidden = !has; empty.hidden = has;
+  if (!has) return;
+  // en pantallas estrechas reduce el zoom para que el recibo quepa entero
+  const stage = cv.parentElement;
+  const roomW = stage.clientWidth - parseFloat(getComputedStyle(stage).paddingLeft) * 2;
+  const paperW = Math.round(state.paper.width * MM_TO_PX);
+  const z = Math.min(zoom, Math.max(0.3, roomW / paperW));
+  const { w, h: hh } = render(cv, (window.devicePixelRatio || 1) * z);
+  cv.style.width = w * z + 'px';
+  cv.style.height = hh * z + 'px';
+  $('#zVal').textContent = Math.round(z * 100) + '%';
+}
+
+/* ---------- campos del formulario ---------- */
+function fieldEl(obj, f, onChange) {
+  if (f.heading) return h('div', { class: 'group-title' }, f.heading);
+  const wrapEl = h(f.type === 'image' ? 'div' : 'label', { class: 'field' + (f.type === 'checkbox' ? ' check' : ''), 'data-k': f.k });
+  const lbl = h('span', { class: 'lbl' }, f.label);
+  let input;
+  switch (f.type) {
+    case 'checkbox':
+      input = h('input', { type: 'checkbox' });
+      input.checked = !!obj[f.k];
+      input.onchange = () => { obj[f.k] = input.checked; onChange(); };
+      wrapEl.append(input, lbl);
+      return wrapEl;
+    case 'textarea':
+      input = h('textarea', { rows: f.rows || 3 });
+      input.value = obj[f.k] ?? '';
+      input.oninput = () => { obj[f.k] = input.value; onChange(); };
+      break;
+    case 'select':
+      input = h('select', {}, f.options.map(([v, l]) => h('option', { value: v }, l)));
+      input.value = String(obj[f.k]);
+      input.onchange = () => { obj[f.k] = f.num ? +input.value : input.value; onChange(); };
+      break;
+    case 'number':
+      input = h('input', { type: 'number', step: 'any', min: f.min });
+      input.value = obj[f.k];
+      input.oninput = () => { obj[f.k] = input.value === '' ? 0 : +input.value; onChange(); };
+      break;
+    case 'range': {
+      const r = h('input', { type: 'range', min: f.min, max: f.max, step: f.step });
+      const out = h('output');
+      const show = () => { out.textContent = (+obj[f.k]).toString() + (f.unit || ''); };
+      r.value = obj[f.k];
+      show();
+      r.oninput = () => { obj[f.k] = +r.value; show(); onChange(); };
+      input = h('div', { class: 'range-row' }, r, out);
+      break;
+    }
+    case 'color':
+      input = h('input', { type: 'color' });
+      input.value = obj[f.k];
+      input.oninput = () => { obj[f.k] = input.value; onChange(); };
+      break;
+    case 'image': {
+      const file = h('input', { type: 'file', accept: 'image/*', hidden: true });
+      const preview = h('img', { alt: 'Logo' });
+      const pick = h('button', { type: 'button' }, 'Elegir imagen…');
+      const clear = h('button', { type: 'button', class: 'danger' }, 'Quitar');
+      const sync = () => { preview.hidden = clear.hidden = !obj[f.k]; if (obj[f.k]) preview.src = obj[f.k]; };
+      pick.onclick = e => { e.preventDefault(); file.click(); };
+      clear.onclick = e => { e.preventDefault(); obj[f.k] = ''; sync(); onChange(); };
+      file.onchange = async () => {
+        const fl = file.files[0];
+        if (!fl) return;
+        try { obj[f.k] = await shrinkImage(fl, 600); sync(); onChange(); }
+        catch (err) { toast('No se pudo leer la imagen'); }
+        file.value = '';
+      };
+      sync();
+      input = h('div', { class: 'img-row' }, preview, pick, clear, file);
+      break;
+    }
+    default:
+      input = h('input', { type: f.type || 'text', step: f.type === 'time' ? 1 : null });
+      input.value = obj[f.k] ?? '';
+      input.oninput = () => { obj[f.k] = input.value; onChange(); };
+  }
+  wrapEl.append(lbl, input);
+  return wrapEl;
+}
+
+function applyVisibility(container, obj, fields) {
+  for (const f of fields || []) {
+    if (!f.show) continue;
+    const el = container.querySelector(`[data-k="${f.k}"]`);
+    if (el) el.hidden = !f.show(obj);
+  }
+}
+
+function shrinkImage(file, maxW) {
+  return new Promise((resolve, reject) => {
+    const rd = new FileReader();
+    rd.onerror = reject;
+    rd.onload = () => {
+      const im = new Image();
+      im.onerror = reject;
+      im.onload = () => {
+        const k = Math.min(1, maxW / im.naturalWidth);
+        const c = document.createElement('canvas');
+        c.width = Math.round(im.naturalWidth * k);
+        c.height = Math.round(im.naturalHeight * k);
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        resolve(c.toDataURL('image/png'));
+      };
+      im.src = rd.result;
+    };
+    rd.readAsDataURL(file);
+  });
+}
+
+function numInput(obj, k, onChange) {
+  const i = h('input', { type: 'number', step: 'any', min: 0, 'aria-label': k });
+  i.value = obj[k];
+  i.oninput = () => { obj[k] = i.value === '' ? 0 : +i.value; onChange(); };
+  return i;
+}
+function textInput(obj, k, onChange, ph) {
+  const i = h('input', { type: 'text', placeholder: ph, 'aria-label': ph });
+  i.value = obj[k] ?? '';
+  i.oninput = () => { obj[k] = i.value; onChange(); };
+  return i;
+}
+
+function itemsEditor(d, onChange) {
+  const box = h('div', { class: 'rows' });
+  const draw = () => {
+    box.innerHTML = '';
+    box.append(h('div', { class: 'row row-items head' }, h('span', {}, 'Cant.'), h('span', {}, 'Descripción'), h('span', {}, 'Precio unit.'), h('span')));
+    d.items.forEach((it, i) => box.append(h('div', { class: 'row row-items' },
+      numInput(it, 'qty', onChange), textInput(it, 'name', onChange, 'Descripción'), numInput(it, 'price', onChange),
+      iconBtn('✕', 'Quitar artículo', () => { d.items.splice(i, 1); draw(); onChange(); }, false, 'danger'))));
+    box.append(h('button', { type: 'button', class: 'add-row', onclick: () => {
+      d.items.push({ qty: 1, name: '', price: 0 });
+      draw(); onChange();
+      const names = box.querySelectorAll('input[type=text]');
+      names[names.length - 1].focus();
+    } }, '+ Añadir artículo'));
+  };
+  draw();
+  return box;
+}
+
+function kvEditor(d, onChange) {
+  const box = h('div', { class: 'rows' });
+  const draw = () => {
+    box.innerHTML = '';
+    box.append(h('div', { class: 'row row-kv head' }, h('span', {}, 'Etiqueta'), h('span', {}, 'Valor'), h('span')));
+    d.rows.forEach((r, i) => box.append(h('div', { class: 'row row-kv' },
+      textInput(r, 'k', onChange, 'Etiqueta'), textInput(r, 'v', onChange, 'Valor'),
+      iconBtn('✕', 'Quitar fila', () => { d.rows.splice(i, 1); draw(); onChange(); }, false, 'danger'))));
+    box.append(h('button', { type: 'button', class: 'add-row', onclick: () => {
+      d.rows.push({ k: '', v: '' });
+      draw(); onChange();
+      const ins = box.querySelectorAll('input[type=text]');
+      ins[ins.length - 2].focus();
+    } }, '+ Añadir fila'));
+  };
+  draw();
+  return box;
+}
+
+/* ---------- lista de secciones ---------- */
+let dragId = null;
+
+function updateSummaries() {
+  document.querySelectorAll('.sec').forEach(card => {
+    const s = state.sections.find(x => x.id === card.dataset.id);
+    if (s && TYPES[s.type].summary) card.querySelector('.sec-sum').textContent = TYPES[s.type].summary(s.data);
+  });
+}
+
+function sectionCard(s, idx) {
+  const T = TYPES[s.type];
+  const body = h('div', { class: 'sec-body' });
+  const handle = h('span', { class: 'handle', draggable: 'true', title: 'Arrastrar para reordenar' }, '⠿');
+  const head = h('div', { class: 'sec-head' },
+    handle, h('span', { class: 'chev' }, '▶'), h('span', { class: 'sec-ico' }, T.icon), h('span', { class: 'sec-title' }, T.label),
+    h('span', { class: 'sec-sum' }, T.summary ? T.summary(s.data) : ''),
+    h('span', { class: 'sec-actions' },
+      iconBtn('↑', 'Subir', () => move(s.id, -1), idx === 0),
+      iconBtn('↓', 'Bajar', () => move(s.id, 1), idx === state.sections.length - 1),
+      iconBtn('⧉', 'Duplicar', () => duplicate(s.id)),
+      iconBtn('✕', 'Eliminar', () => removeSection(s.id), false, 'danger')));
+  const card = h('div', { class: 'sec' + (s.open ? ' open' : ''), 'data-id': s.id }, head, body);
+
+  const changed = () => { updateSummaries(); applyVisibility(body, s.data, T.fields); persist(); scheduleRender(); };
+  const fill = () => {
+    body.innerHTML = '';
+    if (T.editor === 'items') body.append(itemsEditor(s.data, changed));
+    if (T.editor === 'kv') body.append(kvEditor(s.data, changed));
+    for (const f of T.fields) body.append(fieldEl(s.data, f, changed));
+    applyVisibility(body, s.data, T.fields);
+  };
+  if (s.open) fill();
+
+  head.onclick = e => {
+    if (e.target.closest('.sec-actions, .handle')) return;
+    s.open = !s.open;
+    card.classList.toggle('open', s.open);
+    if (s.open && !body.childElementCount) fill();
+    persist();
+  };
+
+  handle.addEventListener('dragstart', e => {
+    dragId = s.id;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', s.id);
+    e.dataTransfer.setDragImage(card, 24, 18);
+    card.classList.add('dragging');
+  });
+  handle.addEventListener('dragend', () => { dragId = null; card.classList.remove('dragging'); clearDropMarks(); });
+  card.addEventListener('dragover', e => {
+    if (!dragId || dragId === s.id) return;
+    e.preventDefault();
+    const r = card.getBoundingClientRect();
+    const after = e.clientY > r.top + r.height / 2;
+    clearDropMarks();
+    card.classList.add(after ? 'drop-after' : 'drop-before');
+  });
+  card.addEventListener('drop', e => {
+    if (!dragId || dragId === s.id) return;
+    e.preventDefault();
+    const after = card.classList.contains('drop-after');
+    const [m] = state.sections.splice(state.sections.findIndex(x => x.id === dragId), 1);
+    let to = state.sections.findIndex(x => x.id === s.id);
+    if (after) to++;
+    state.sections.splice(to, 0, m);
+    structural();
+  });
+  return card;
+}
+
+function clearDropMarks() {
+  document.querySelectorAll('.drop-before, .drop-after').forEach(el => el.classList.remove('drop-before', 'drop-after'));
+}
+
+function renderSections() {
+  const list = $('#sections');
+  list.innerHTML = '';
+  if (!state.sections.length) {
+    list.append(h('div', { class: 'empty-list' }, h('div', {}, 'Todavía no hay secciones'), h('small', {}, 'Pulsa «Añadir sección» o aplica una plantilla')));
+    return;
+  }
+  state.sections.forEach((s, i) => list.append(sectionCard(s, i)));
+}
+
+function renderPaper() {
+  const box = $('#tab-paper');
+  box.innerHTML = '';
+  for (const f of PAPER_FIELDS) box.append(fieldEl(state.paper, f, () => { updateSummaries(); persist(); scheduleRender(); }));
+}
+
+function structural() {
+  renderSections();
+  persist();
+  scheduleRender();
+}
+
+function move(id, dir) {
+  const i = state.sections.findIndex(x => x.id === id), j = i + dir;
+  if (j < 0 || j >= state.sections.length) return;
+  [state.sections[i], state.sections[j]] = [state.sections[j], state.sections[i]];
+  structural();
+}
+
+function duplicate(id) {
+  const i = state.sections.findIndex(x => x.id === id);
+  const c = clone(state.sections[i]);
+  c.id = uid();
+  state.sections.splice(i + 1, 0, c);
+  structural();
+}
+
+function removeSection(id) {
+  const i = state.sections.findIndex(x => x.id === id);
+  const [gone] = state.sections.splice(i, 1);
+  structural();
+  toast(`Sección «${TYPES[gone.type].label}» eliminada`, { label: 'Deshacer', run: () => { state.sections.splice(i, 0, gone); structural(); } });
+}
+
+/* ---------- archivos ---------- */
+function fileBase() {
+  return (state.name || 'recibo').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'recibo';
+}
+
+function download(blob, name) {
+  const a = h('a', { href: URL.createObjectURL(blob), download: name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+function exportCanvas(scale) {
+  const c = document.createElement('canvas');
+  render(c, scale);
+  return c;
+}
+
+/* ---------- avisos ---------- */
+let toastTimer = 0;
+function toast(msg, action) {
+  const t = $('#toast');
+  t.innerHTML = '';
+  t.append(h('span', {}, msg));
+  if (action) t.append(h('button', { type: 'button', onclick: () => { action.run(); t.classList.remove('show'); } }, action.label));
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 4500);
+}
+
+/* ---------- arranque ---------- */
+function init() {
+  try { const saved = localStorage.getItem(KEY); if (saved) state = normalize(JSON.parse(saved)); } catch (e) { state = null; }
+  if (!state) state = fromTemplate('tienda');
+  try { const z = parseFloat(localStorage.getItem(KEY + ':zoom')); if (z >= 0.5 && z <= 3) zoom = z; } catch (e) { /* sin almacenamiento */ }
+
+  const tpl = $('#tpl');
+  for (const [k, t] of Object.entries(TEMPLATES)) tpl.append(h('option', { value: k }, t.label));
+  $('#btnTpl').onclick = () => {
+    if (state.sections.length && !confirm('¿Reemplazar el contenido actual por la plantilla? (El formato del papel se mantiene.)')) return;
+    state = fromTemplate(tpl.value);
+    $('#name').value = state.name;
+    structural();
+  };
+
+  document.querySelectorAll('.tab').forEach(b => b.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === b));
+    $('#tab-content').hidden = b.dataset.tab !== 'content';
+    $('#tab-paper').hidden = b.dataset.tab !== 'paper';
+  });
+
+  const menu = $('#addMenu');
+  for (const [k, T] of Object.entries(TYPES)) {
+    menu.append(h('button', { type: 'button', onclick: () => {
+      const s = S(k);
+      s.open = true;
+      state.sections.push(s);
+      menu.hidden = true;
+      structural();
+      document.querySelector(`.sec[data-id="${s.id}"]`).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } }, h('span', { class: 'sec-ico' }, T.icon), T.label));
+  }
+  $('#btnAdd').onclick = e => { e.stopPropagation(); menu.hidden = !menu.hidden; };
+  document.addEventListener('click', e => { if (!e.target.closest('.add-wrap')) menu.hidden = true; });
+
+  const name = $('#name');
+  name.value = state.name;
+  name.oninput = () => { state.name = name.value; persist(); };
+
+  const setZoom = z => {
+    zoom = Math.min(3, Math.max(0.5, Math.round(z * 4) / 4));
+    try { localStorage.setItem(KEY + ':zoom', zoom); } catch (e) { /* sin almacenamiento */ }
+    scheduleRender();
+  };
+  $('#zIn').onclick = () => setZoom(zoom + 0.25);
+  $('#zOut').onclick = () => setZoom(zoom - 0.25);
+
+  $('#btnPng').onclick = () => {
+    if (!state.sections.length) return toast('Añade alguna sección primero');
+    exportCanvas(3).toBlob(b => download(b, fileBase() + '.png'), 'image/png');
+  };
+  $('#btnPrint').onclick = () => {
+    if (!state.sections.length) return toast('Añade alguna sección primero');
+    const img = $('#printImg');
+    img.style.width = state.paper.width + 'mm';
+    img.onload = () => { img.onload = null; window.print(); };
+    img.src = exportCanvas(4).toDataURL('image/png');
+  };
+  $('#btnSave').onclick = () => {
+    const data = { app: 'generador-recibos', version: 1, ...clone(state) };
+    data.sections.forEach(s => delete s.id);
+    download(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), fileBase() + '.json');
+  };
+  const fileOpen = $('#fileOpen');
+  $('#btnOpen').onclick = () => fileOpen.click();
+  fileOpen.onchange = async () => {
+    const f = fileOpen.files[0];
+    fileOpen.value = '';
+    if (!f) return;
+    try {
+      state = normalize(JSON.parse(await f.text()));
+      name.value = state.name;
+      renderPaper();
+      structural();
+      toast('Recibo cargado');
+    } catch (err) {
+      toast('No se pudo abrir: ' + (err.message || 'archivo no válido'));
+    }
+  };
+
+  window.addEventListener('resize', scheduleRender);
+  renderPaper();
+  renderSections();
+  renderPreview();
+}
+
+init();
+</script>
+</body>
+</html>
